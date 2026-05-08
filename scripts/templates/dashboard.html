@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SIEM-Lite Dashboard v2</title>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;700&display=swap" rel="stylesheet">
+
+    <style>
+        /* CSS Variables */
+        :root {
+            --bg-dark: #0d0221; --primary-glow: #7c00ff; --secondary-glow: #f0f;
+            --text-neon: #00ff9c; --text-muted: #9a9a9a; --font-main: 'Roboto Mono', monospace;
+        }
+        body { background-color: var(--bg-dark); color: var(--text-neon); font-family: var(--font-main); margin: 0; padding: 1.5rem; }
+        .container { display: grid; grid-template-columns: repeat(12, 1fr); gap: 1.5rem; width: 100%; max-width: 1600px; margin: 0 auto; }
+        header { grid-column: 1 / -1; }
+        .card { background-color: rgba(10, 2, 30, 0.8); border: 1px solid var(--primary-glow); box-shadow: 0 0 15px rgba(124, 0, 255, 0.5); padding: 1.5rem; border-radius: 8px; }
+        .card-total-logs { grid-column: span 3; }
+        .card-chart { grid-column: span 9; }
+        .card-alerts { grid-column: span 5; }
+        .card-map { grid-column: span 7; }
+        .card-timeline { grid-column: span 12; }
+        .card-parsed-logs { grid-column: span 12; }
+        .card-search { grid-column: span 12; }
+        h1, h2, h3 { color: var(--secondary-glow); text-shadow: 0 0 8px rgba(255, 0, 255, 0.7); text-transform: uppercase; margin-top: 0; }
+        .btn { background-color: transparent; border: 2px solid var(--text-neon); color: var(--text-neon); padding: 10px 20px; border-radius: 6px; font-family: var(--font-main); cursor: pointer; transition: all 0.3s ease; box-shadow: 0 0 10px rgba(0, 255, 156, 0.5); }
+        .btn:hover { background-color: var(--text-neon); color: var(--bg-dark); }
+        .score-clean { color: var(--text-neon); font-weight: bold; }
+        .score-medium { color: #ffd900; font-weight: bold; }
+        .score-high { color: #ff0055; font-weight: bold; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--primary-glow); font-size: 13px; }
+        th { background-color: var(--primary-glow); color: var(--bg-dark); text-shadow: none; }
+        tbody tr:hover { background-color: rgba(255, 0, 255, 0.2); }
+        .muted { color: var(--text-muted); font-size: 13px; }
+        .log-count { font-size: 2.5rem; font-weight: 700; }
+        .scrollable { max-height: 400px; overflow: auto; display: block; }
+        #map { height: 400px; border-radius: 5px; background-color: #333; }
+        .leaflet-container { background: #1a1a1a !important; }
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: var(--bg-dark); }
+        ::-webkit-scrollbar-thumb { background: var(--primary-glow); }
+        ::-webkit-scrollbar-thumb:hover { background: var(--secondary-glow); }
+        .modal-overlay { display: none; position: fixed; z-index: 2000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.7); }
+        .modal-content { margin: 10% auto; padding: 2rem; width: 60%; max-width: 800px; position: relative; }
+        .modal-close { color: var(--text-muted); position: absolute; top: 10px; right: 25px; font-size: 28px; font-weight: bold; cursor: pointer; }
+        .modal-close:hover { color: var(--secondary-glow); }
+        .search-form { display: flex; gap: 1rem; }
+        .search-form input[type="text"] { flex-grow: 1; background-color: var(--bg-dark); border: 1px solid var(--primary-glow); color: var(--text-neon); padding: 8px 12px; border-radius: 4px; font-family: var(--font-main); font-size: 14px; }
+    </style>
+</head>
+<body>
+    <div id="ip-modal" class="modal-overlay">
+        <div class="modal-content card">
+            <span class="modal-close" onclick="hideIpDetails()">&times;</span>
+            <h3>IP Details: <span id="modal-ip"></span></h3>
+            <hr>
+            <p><strong>Risk Score:</strong> <span id="modal-score">...</span></p>
+            <p><strong>Location:</strong> <span id="modal-location">...</span></p>
+            <h4>Recent Activity:</h4>
+            <div id="modal-activity" class="scrollable" style="max-height: 200px;"></div>
+        </div>
+    </div>
+
+    <div class="container">
+        <header>
+            <h1>SIEM-Lite — Dashboard</h1>
+        </header>
+
+        <div class="card card-total-logs">
+            <div class="muted">Total Logs</div>
+            <div id="total-logs" class="log-count">...</div>
+            <div style="margin-top:8px;"><button id="refresh-btn" class="btn">Refresh</button></div>
+        </div>
+
+        <div class="card card-chart">
+            <canvas id="chart" height="120"></canvas>
+        </div>
+
+        <div class="card card-alerts">
+            <h3>Recent Alerts</h3>
+            <div id="alerts-list" class="scrollable"></div>
+        </div>
+
+        <div class="card card-map">
+            <h3>Live Attack Map</h3>
+            <div id="map"></div>
+        </div>
+        
+        <div class="card card-timeline">
+            <h3>Alerts Timeline (Last 24 Hours)</h3>
+            <div style="height: 150px;">
+                <canvas id="timeline-chart"></canvas>
+            </div>
+        </div>
+
+        <div class="card card-parsed-logs">
+            <h3>Recent Parsed Logs</h3>
+            <div id="logs-table-wrapper" class="scrollable">
+                <table id="tbl-logs">
+                    <thead><tr><th>ID</th><th>Time</th><th>IP</th><th>Action</th><th>Score</th><th>Raw</th></tr></thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+        
+        <div class="card card-search">
+            <h3>Time Machine (Search Logs)</h3>
+            <div class="search-form">
+                <input type="text" id="search-query" placeholder="Search by IP, Action, or Date (YYYY-MM-DD)...">
+                <button id="search-btn" class="btn">Search</button>
+            </div>
+        </div>
+    </div>
+
+<script>
+    // --- Global Variables ---
+    let chart = null; let map = null; let timelineChart = null; let markers = [];
+    const modal = document.getElementById('ip-modal');
+    let isSearching = false; // YEH NAYI MEMORY HAI
+
+    // --- API Fetch Function ---
+    async function fetchJSON(url) {
+        const res = await fetch(url);
+        return res.json();
+    }
+
+    // --- UI Rendering Functions ---
+    function initializeMap() {
+        if (map) return;
+        map = L.map('map').setView([20, 0], 2);
+        L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
+            attribution: 'Tiles &copy; Esri'
+        }).addTo(map);
+        setTimeout(() => map.invalidateSize(), 100);
+    }
+
+    async function showIpDetails(ip) {
+        document.getElementById('modal-ip').innerText = ip;
+        document.getElementById('modal-score').innerText = 'Loading...';
+        document.getElementById('modal-location').innerText = 'Loading...';
+        document.getElementById('modal-activity').innerHTML = 'Loading...';
+        modal.style.display = 'block';
+        const data = await fetchJSON(`/api/ip/${ip}`);
+        if (!data.ok) { document.getElementById('modal-activity').innerHTML = '<p style="color:red;">Error loading details.</p>'; return; }
+        let first_log = data.logs[0] || {};
+        let score = first_log.abuse_score;
+        let score_color = 'score-clean';
+        if (score > 50) score_color = 'score-high';
+        else if (score > 0) score_color = 'score-medium';
+        document.getElementById('modal-score').innerHTML = `<span class="${score_color}">${score === null ? 'N/A' : score}</span>`;
+        const alertWithLocation = await fetchJSON('/api/alerts');
+        let location_text = "Not found";
+        if (alertWithLocation.ok) {
+            const foundAlert = alertWithLocation.alerts.find(a => a.ip === ip && a.location);
+            if (foundAlert) { location_text = `${foundAlert.location.country}`; }
+        }
+        document.getElementById('modal-location').innerText = location_text;
+        const activity_container = document.getElementById('modal-activity');
+        activity_container.innerHTML = '';
+        data.logs.slice(0, 20).forEach(log => {
+            const p = document.createElement('p');
+            p.style.cssText = 'border-bottom: 1px solid #2a0052; padding-bottom: 4px; margin-bottom: 4px;';
+            p.innerHTML = `<span class="muted">${log.timestamp}</span><br>${log.action}`;
+            activity_container.appendChild(p);
+        });
+    }
+
+    function hideIpDetails() { modal.style.display = 'none'; }
+
+    function updateMapMarkers(alerts) {
+        markers.forEach(m => map.removeLayer(m));
+        markers = [];
+        alerts.forEach(alert => {
+            if (alert.location && alert.location.lat && alert.location.lon) {
+                let marker = L.marker([alert.location.lat, alert.location.lon]).addTo(map);
+                marker.bindPopup(`<b>${alert.alert_type}</b><br>${alert.ip}<br>${alert.location.country}`);
+                markers.push(marker);
+            }
+        });
+    }
+
+    function renderLogsTable(logs) {
+        const tbody = document.querySelector('#tbl-logs tbody');
+        tbody.innerHTML = '';
+        if (!logs || logs.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">No matching logs found.</td></tr>';
+            return;
+        }
+        logs.forEach(r => {
+            const tr = document.createElement('tr');
+            let score = r.abuse_score;
+            let score_color = 'score-clean';
+            if (score > 50) score_color = 'score-high';
+            else if (score > 0) score_color = 'score-medium';
+            tr.innerHTML = `<td>${r.id}</td><td>${r.timestamp}</td><td><a href="#" onclick="event.preventDefault(); showIpDetails('${r.ip}')">${r.ip}</a></td><td>${r.action}</td><td class="${score_color}">${score === null ? 'N/A' : score}</td><td title="${r.raw}" style="max-width:300px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${r.raw}</td>`;
+            tbody.appendChild(tr);
+        });
+    }
+
+    // --- Data Loading Functions ---
+    async function loadCountsAndChart() {
+        const data = await fetchJSON('/api/counts');
+        if (!data.ok) return console.error('Counts API error', data);
+        document.getElementById('total-logs').innerText = data.total_logs || 0;
+        const labels = data.by_type.map(x => x.type || 'UNKNOWN');
+        const values = data.by_type.map(x => x.count || 0);
+        const ctx = document.getElementById('chart').getContext('2d');
+        if (chart) chart.destroy();
+        chart = new Chart(ctx, {
+            type: 'bar', data: { labels: labels, datasets: [{ label: 'Alerts by type', data: values, backgroundColor: 'rgba(124, 0, 255, 0.5)', borderColor: '#f0f', borderWidth: 1 }] },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: '#00ff9c' } } }, scales: { y: { beginAtZero: true, ticks: { color: '#00ff9c' }, grid: { color: 'rgba(0, 255, 156, 0.2)' } }, x: { ticks: { color: '#00ff9c' }, grid: { color: 'rgba(0, 255, 156, 0.2)' } } } }
+        });
+    }
+
+    async function loadTimelineChart() {
+        const data = await fetchJSON('/api/timeline');
+        if (!data.ok) return console.error("Timeline API error", data);
+        const labels = data.timeline.map(d => d.hour);
+        const values = data.timeline.map(d => d.count);
+        const ctx = document.getElementById('timeline-chart').getContext('2d');
+        if (timelineChart) timelineChart.destroy();
+        timelineChart = new Chart(ctx, {
+            type: 'line', data: { labels: labels, datasets: [{ label: 'Alerts per Hour', data: values, backgroundColor: 'rgba(255, 0, 255, 0.2)', borderColor: 'var(--secondary-glow)', borderWidth: 2, tension: 0.3, fill: true }] },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { color: '#00ff9c', stepSize: 1 }, grid: { color: 'rgba(0, 255, 156, 0.2)' }, suggestedMax: 5 }, x: { ticks: { color: '#00ff9c' }, grid: { color: 'rgba(0, 255, 156, 0.1)' } } } }
+        });
+    }
+
+    async function loadAlertsAndLogs() {
+        const alertData = await fetchJSON('/api/alerts');
+        if (alertData.ok) {
+            updateMapMarkers(alertData.alerts);
+            const container = document.getElementById('alerts-list');
+            container.innerHTML = '';
+            if (!alertData.alerts || alertData.alerts.length === 0) {
+                container.innerHTML = '<div class="muted">No alerts</div>';
+            } else {
+                alertData.alerts.slice(0, 50).forEach(a => {
+                    const el = document.createElement('div');
+                    el.style.padding = '8px 4px';
+                    el.style.borderBottom = '1px solid #2a0052';
+                    el.innerHTML = `<b style="color:#f0f;">${a.alert_type || 'ALERT'}</b> ${a.ip ? ' from ' + a.ip : ''} <div class="muted" style="font-size:12px;">${a.time}</div><div>${a.details}</div>`;
+                    container.appendChild(el);
+                });
+            }
+        }
+        const logData = await fetchJSON('/api/logs');
+        if (logData.ok) {
+            renderLogsTable(logData.logs);
+        }
+    }
+
+    // --- Main Refresh & Event Listeners ---
+    async function refreshAll() {
+        // NAYA LOGIC: Agar search mode on hai, toh auto-refresh mat karo
+        if (isSearching) {
+            console.log("Search mode is on. Skipping auto-refresh.");
+            return;
+        }
+        try {
+            await Promise.all([ loadCountsAndChart(), loadAlertsAndLogs(), loadTimelineChart() ]);
+        } catch (e) { console.error(e); }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        initializeMap();
+        refreshAll();
+        setInterval(refreshAll, 5000);
+
+        // NAYA REFRESH BUTTON LOGIC
+        document.getElementById('refresh-btn').addEventListener('click', () => {
+            document.getElementById('search-query').value = ''; // Search box khali karo
+            isSearching = false; // Search mode band karo
+            refreshAll(); // Aur live data load karo
+        });
+        
+        // NAYA SEARCH BUTTON LOGIC
+        document.getElementById('search-btn').addEventListener('click', async () => {
+            const query = document.getElementById('search-query').value;
+            if (!query) {
+                isSearching = false;
+                refreshAll();
+                return;
+            }
+            isSearching = true; // Search mode on karo
+            console.log("Searching for:", query);
+            const searchData = await fetchJSON(`/api/search?q=${query}`);
+            if (searchData.ok) {
+                renderLogsTable(searchData.logs); // Table ko sirf search result se update karo
+            }
+        });
+    });
+</script>
+</body>
+</html>

@@ -1,0 +1,5 @@
+id,time,type,ip,details
+2,2025-10-04T21:41:24.576246,BruteForce,192.168.1.15,6 failed logins within 60s
+1,2025-10-04T21:41:22.561626,BruteForce,192.168.1.15,5 failed logins within 60s
+2,2025-10-04T21:41:24.576246,BruteForce,192.168.1.15,6 failed logins within 60s,2025-10-06 23:17:25
+1,2025-10-04T21:41:22.561626,BruteForce,192.168.1.15,5 failed logins within 60s,2025-10-06 23:17:25
