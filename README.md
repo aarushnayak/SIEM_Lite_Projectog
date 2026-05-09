@@ -10,7 +10,7 @@
 
 ---
 
-## 📌 Table of Contents
+## 📌 Table of Contents. 
 
 - [Overview](#-overview)
 - [Features](#-features)
@@ -28,7 +28,6 @@
 
 **SIEM Lite** is a cybersecurity project that simulates a real-world Security Information and Event Management (SIEM) system. It parses authentication logs, detects malicious activity such as brute-force login attempts, stores alerts in a local SQLite database, and displays everything on a live web dashboard.
 
----
 
 ## ✨ Features
 
