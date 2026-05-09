@@ -1,4 +1,4 @@
-# alerts_viewer.py
+# alerts_viewer.py 
 import sqlite3
 import os
 import csv
@@ -56,3 +56,4 @@ print(f"Wrote {len(rows)} alerts to {OUT_CSV}")
 print("\nRecent alerts (most recent first):")
 for row in rows[:5]:
     print(row)
+# hello hii 
