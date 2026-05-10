@@ -8,8 +8,7 @@
 ![Status](https://img.shields.io/badge/Status-Active-brightgreen?style=flat-square)
 ![CI](https://github.com/aarushnayak/SIEM_Lite_Projectog/actions/workflows/python-package.yml/badge.svg)
 
----
-
+-
 ## 📌 Table of Contents. 
 
 - [Overview](#-overview)
