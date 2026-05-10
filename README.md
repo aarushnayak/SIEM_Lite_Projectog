@@ -9,7 +9,7 @@
 ![CI](https://github.com/aarushnayak/SIEM_Lite_Projectog/actions/workflows/python-package.yml/badge.svg)
 
 -
-## 📌 Table of Contents. 
+## 📌 Table of Contents..
 
 - [Overview](#-overview)
 - [Features](#-features)
