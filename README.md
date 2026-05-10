@@ -213,6 +213,7 @@ The Flask web dashboard provides:
 
 ## 👨‍💻 Author
 
+
 **Aarush Nayak**  
 🔗 [GitHub](https://github.com/aarushnayak)
 
