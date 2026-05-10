@@ -2,7 +2,7 @@
 import sqlite3
 import os
 import csv
-from datetime import datetime
+from datetime import datetime 
 
 DB_PATH = os.path.abspath(os.path.join("..", "logs", "siem_lite.db"))
 OUT_CSV = os.path.abspath(os.path.join("..", "logs", "alerts_viewed.csv"))
