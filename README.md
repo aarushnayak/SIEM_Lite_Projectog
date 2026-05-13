@@ -1,4 +1,4 @@
-# 🛡️ SIEM Lite — Security Information & Event Management System
+# 🛡️ SIEM Lite — Security Information & Event Management System.
 
 > A lightweight, Python-based SIEM system that monitors network logs, detects brute-force attacks in real time, and visualizes security alerts through a Flask web dashboard.
 
